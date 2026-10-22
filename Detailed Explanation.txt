@@ -1,0 +1,95 @@
+### 1. What Model Did You Use?
+
+**Answer:**
+
+> "I used **EfficientNet-B3** for both the Brain Tumor and Chest X-ray models."
+
+**Why EfficientNet-B3?** (This is important)
+
+- EfficientNet uses **compound scaling** (it scales depth, width, and resolution together in a balanced way). This gives better accuracy with fewer parameters compared to ResNet or older models.
+- **B3** is a good middle ground — it has strong accuracy but is still lightweight enough to run reasonably fast on a normal GPU during inference.
+- I used **transfer learning** — started with weights pretrained on ImageNet, then fine-tuned on my medical datasets. This is standard and effective when you don’t have millions of medical images.
+
+**Comparison you can mention:**
+- ResNet18/50 → Older, simpler, but less efficient.
+- EfficientNet-B3 → Better accuracy-efficiency tradeoff (this is why I chose it).
+
+---
+
+### 2. What Happens After the Image is Sent? (Full Pipeline)
+
+This is the most important part. Explain it **step by step** like this:
+
+#### Step-by-step Flow:
+
+1. **User uploads image** (from React frontend)
+2. **Frontend sends** the image + `scan_type` (brain / chest / auto) to the FastAPI backend via `/analyze` endpoint.
+3. **Backend receives** the image:
+   - Saves it temporarily
+   - Calls the `MedicalInference` class
+4. **Preprocessing**:
+   - Image is resized to **300×300**
+   - Converted to tensor
+   - Normalized using ImageNet mean & std `[0.485, 0.456, 0.406]` and `[0.229, 0.224, 0.225]`
+5. **Model Inference**:
+   - Image goes through **EfficientNet-B3**
+   - Model outputs raw logits → Softmax → probabilities
+   - We take the class with highest probability + confidence score
+6. **Post-processing**:
+   - If confidence is low → we return "Uncertain" with warning
+   - If user chose **Automatic mode** → we run **both models** and compare confidence scores using a threshold (25% gap + 70% minimum)
+7. **Grad-CAM** (if user clicks "Click to show analysis"):
+   - We generate a heatmap showing which parts of the image influenced the prediction the most
+8. **Response sent back** to frontend (prediction, confidence, warning, Grad-CAM image)
+
+---
+
+### 3. Why "3 Blocks" Instead of 10? (This is probably what confused you)
+
+Your teacher might be asking about **why the pipeline has certain stages** or referring to the **model architecture**.
+
+#### Possible interpretations:
+
+**A. Pipeline Stages (Most Likely)**
+
+You can explain the system has **3 main logical blocks**:
+
+| Block | Name                    | What it does                              | Why it exists |
+|-------|-------------------------|-------------------------------------------|-------------|
+| **1** | **Preprocessing**       | Resize + Normalize                        | Model expects fixed input size & normalized data |
+| **2** | **Feature Extraction + Classification** | EfficientNet-B3 (backbone)           | Learns features and predicts class |
+| **3** | **Post-processing + Explainability** | Confidence check + Grad-CAM         | Makes the system safe + interpretable |
+
+**Why not 10 blocks?**
+- We kept it clean and modular (good software + ML engineering practice).
+- Each block has a clear responsibility.
+- Adding too many unnecessary blocks increases complexity without benefit.
+
+**B. Inside EfficientNet-B3 Architecture**
+
+If they asked about the model itself:
+
+EfficientNet-B3 has **multiple stages** made of **MBConv blocks** (Mobile Inverted Bottleneck Convolution). It doesn't have just 3 blocks — it has several stages.
+
+You can say:
+> "The model uses compound scaling across multiple stages. I used the full EfficientNet-B3 architecture (not a reduced version). The '3 blocks' might refer to the 3 main parts of my inference pipeline: Preprocessing → Model → Post-processing."
+
+---
+
+### 4. Professional Summary You Can Say
+
+Here's a clean paragraph you can memorize/adapt:
+
+> "I used **EfficientNet-B3** with transfer learning for both tasks. After the image is uploaded, it goes through three main stages:  
+> 1. **Preprocessing** (resize to 300×300 + ImageNet normalization)  
+> 2. **Inference** using the fine-tuned EfficientNet-B3 model  
+> 3. **Post-processing** which includes confidence thresholding and Grad-CAM explainability.  
+> I kept the pipeline modular with these three logical blocks because it makes the system easier to maintain, debug, and extend. The Automatic mode runs both models and uses a confidence gap + threshold logic to decide whether to trust the result or return 'Uncertain'."
+
+---
+
+### Bonus Points You Can Add
+
+- **Why Grad-CAM?** → For explainability (very important in medical AI). Doctors don’t trust black-box predictions.
+- **Why confidence threshold + Uncertain class?** → Safety. In medical applications, it's better to say "I'm not sure, consult a doctor" than give a wrong confident answer.
+- **Why 80/10/10 split?** → Standard practice. We had enough data after cleaning.

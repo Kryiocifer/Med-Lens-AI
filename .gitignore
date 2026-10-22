@@ -1,0 +1,13 @@
+# Data and large files
+data/
+photos/
+weights/*.pth
+*.zip
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
